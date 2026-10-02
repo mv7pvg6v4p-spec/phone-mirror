@@ -103,3 +103,46 @@ The server binds to `127.0.0.1` only.
   resetting, and restarts from zero when the server restarts.
 - Nothing here force-stops or restarts an app; input is limited to taps,
   swipes and key events.
+
+## Credits and prior art
+
+No code in this repository was copied from the projects below. They are cited
+because the tool depends on some of them at runtime, and because the rest are
+the prior art this stands on.
+
+Runtime dependencies (invoked, not bundled or relicensed):
+
+| Project | Licence | Used for |
+| --- | --- | --- |
+| [`adb`, Android platform-tools](https://developer.android.com/tools/adb) | Android SDK terms | device transport, `screenrecord`, `input` |
+| [FFmpeg](https://ffmpeg.org/legal.html) | LGPL-2.1 or later (GPL-2.0+ if the optional parts are built in) | H.264 decode, JPEG encode |
+| [Pillow](https://raw.githubusercontent.com/python-pillow/Pillow/main/LICENSE) | MIT-like HPND | optional motion / black-frame metrics |
+| [NumPy](https://raw.githubusercontent.com/numpy/numpy/main/LICENSE.txt) | BSD-3-Clause | optional motion / black-frame metrics |
+
+Prior art and references:
+
+- [scrcpy](https://github.com/Genymobile/scrcpy) (Apache-2.0) established
+  mirroring and controlling an Android device over adb. This project borrows no
+  code from it and takes a deliberately narrower route - stock `adb`
+  `screenrecord` plus `input`, with no on-device server - which is simpler to
+  audit but lower quality and lower latency than scrcpy. If you need the best
+  experience, use scrcpy; if you need a browser page and a dashboard, this.
+- [ws-scrcpy](https://github.com/NetrisTV/ws-scrcpy) (MIT), a web client
+  prototype for the scrcpy protocol, is the closest existing thing to what this
+  page does. It decodes H.264 in the browser; this one converts to JPEG
+  server-side and streams MJPEG instead, which trades quality for having no
+  codec or WebSocket machinery at all.
+- [RFC 2046](https://www.rfc-editor.org/rfc/rfc2046) for the multipart media
+  type that `multipart/x-mixed-replace` streaming is built on.
+- [Android `WindowInsets`](https://developer.android.com/reference/android/view/WindowInsets)
+  for the status-bar and gesture-area sizing used as crop defaults.
+- [WCAG 2.1](https://www.w3.org/TR/WCAG21/) for the 4.5:1 contrast target the
+  light theme is tuned against.
+
+## Provenance
+
+This code was written by an AI coding assistant (Qoder) working on the author's
+machine on 2026-10-02, then tested and published by the author. The measurements
+quoted above - fps, frame sizes, crop offsets, contrast ratios - were taken on a
+HONOR AMP-AN10 (1224x2700 @ 520 dpi) over wireless adb and will differ on other
+devices.
