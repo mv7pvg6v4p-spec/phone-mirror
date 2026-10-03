@@ -31,6 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+VERSION = "1.0.0"
 CAPTURE_DIR = os.path.join(ROOT, "captures")
 STATE_FILE = os.path.join(ROOT, "mirror.state.json")
 SETTINGS_FILE = os.path.join(ROOT, "mirror.settings.json")
@@ -775,7 +776,7 @@ CHARGE_CODES = {"1": "unknown", "2": "charging", "3": "discharging", "4": "full"
 
 def collect_status():
     serial = MIRROR.serial
-    out = {"online": bool(serial), "serial": serial,
+    out = {"online": bool(serial), "serial": serial, "version": VERSION,
            "presets": {k: v["label"] for k, v in PRESETS.items()}}
     if serial:
         out["model"] = adb_shell(serial, ["getprop", "ro.product.model"], timeout=6).strip() or "?"
@@ -970,7 +971,7 @@ def handle_action(body):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "PhoneMirror/1.0"
+    server_version = "PhoneMirror/" + VERSION
 
     def log_message(self, fmt, *args):
         pass

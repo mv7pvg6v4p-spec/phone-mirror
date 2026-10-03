@@ -79,6 +79,8 @@
   }
   .summary::-webkit-scrollbar{display:none}
   .summary b{color:var(--ink); font-weight:600}
+  .ver{font-size:10.5px;font-family:var(--mono);color:var(--dim);border:1px solid var(--line);
+    border-radius:6px;padding:1px 6px;font-weight:500;margin-left:2px}
   .grow{flex:1 1 auto}
   .seg{display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--panel)}
   .seg button{
@@ -303,7 +305,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo"></span> Phone Mirror</div>
+  <div class="brand"><span class="logo"></span> Phone Mirror <span class="ver" id="ver">v1.0.0</span></div>
   <div class="summary" id="summary"><span class="dot idle pulse"></span> connecting…</div>
   <div class="grow"></div>
   <div class="seg" id="theme" title="Colour theme">
@@ -1225,6 +1227,7 @@ async function pollStatus() {
   try {
     status = await api('/api/status');
     const m = status.mirror || {};
+    if (status.version) $('#ver').textContent = 'v' + status.version;
     if (status.dwell) dwellBase = status.dwell;
     if (!document.hidden && m.state === 'mirroring' &&
         m.frames > lastServerFrames + 2 && performance.now() - lastChange > 6000) {
