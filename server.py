@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CAPTURE_DIR = os.path.join(ROOT, "captures")
 STATE_FILE = os.path.join(ROOT, "mirror.state.json")
 SETTINGS_FILE = os.path.join(ROOT, "mirror.settings.json")
