@@ -103,3 +103,31 @@ The server binds to `127.0.0.1` only.
   resetting, and restarts from zero when the server restarts.
 - Nothing here force-stops or restarts an app; input is limited to taps,
   swipes and key events.
+
+## Third-party components
+
+This repository contains only its own code. It does not bundle, link or
+relicense any third-party software - the items below are separate programs or
+libraries that you install yourself, and this tool spawns or imports them at
+runtime. Your copy of each stays under its own terms.
+
+| Component | Licence | How this project uses it |
+| --- | --- | --- |
+| Android Debug Bridge (`adb`), Android platform-tools | Android SDK Licence Agreement | spawns `screenrecord` and `input` over wireless or USB adb |
+| [FFmpeg](https://ffmpeg.org/legal.html) | LGPL-2.1 or later (GPL-2.0 or later if the optional parts are compiled in) | spawned to decode H.264 and encode JPEG |
+| [Pillow](https://raw.githubusercontent.com/python-pillow/Pillow/main/LICENSE) | MIT-like HPND - (c) Secret Labs AB, Fredrik Lundh, Jeffrey 'Alex' Clark and contributors | optional import for motion and black-frame metrics |
+| [NumPy](https://raw.githubusercontent.com/numpy/numpy/main/LICENSE.txt) | BSD 3-Clause - (c) NumPy Developers | optional import, same metrics |
+
+Because nothing here is linked against or shipped with those projects, this
+repository can be offered under MIT without conflicting with their terms. If
+you repackage this into an installer or appliance, their notice obligations
+transfer to you: FFmpeg's LGPL means users must be able to relink or replace
+it, and Pillow and NumPy require their copyright notices to travel with copies.
+
+Two earlier projects in the same space, listed for context rather than
+attribution - no code here came from either: [scrcpy](https://github.com/Genymobile/scrcpy)
+(Apache-2.0), which established displaying and controlling an Android device
+over adb, and [ws-scrcpy](https://github.com/NetrisTV/ws-scrcpy) (MIT), a web
+client for its protocol. This tool deliberately uses stock adb commands and
+streams MJPEG instead, which is easier to audit but lower quality and higher
+latency than both.
