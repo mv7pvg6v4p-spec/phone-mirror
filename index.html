@@ -362,6 +362,11 @@
         <dt>Uptime</dt><dd id="d-uptime">—</dd>
         <dt>Load avg</dt><dd id="d-load">—</dd>
       </dl>
+      <div class="cropbar">
+        <label class="switch"><input type="checkbox" id="ac-on" checked> Auto-connect</label>
+        <button class="btn" id="ac-forget" title="Clear the remembered adb endpoints">Forget devices</button>
+      </div>
+      <div class="dwell-sub" id="ac-state">—</div>
     </div>
 
     <div class="card">
@@ -645,6 +650,29 @@ $('#crop-top').addEventListener('change', e => pushCrop({ crop_top: e.target.val
 $('#crop-bot').addEventListener('change', e => pushCrop({ crop_bottom: e.target.value === '' ? 'auto' : +e.target.value }));
 $('#crop-auto').onclick = () => pushCrop({ crop_top: null, crop_bottom: null }, 'using device insets / Android defaults');
 $('#crop-measure').onclick = () => pushCrop({ remeasure: true }, 'reading bar heights from the device');
+
+/* ---------------- auto-connect ---------------- */
+function renderConnect() {
+  const c = status.connect || {}, cb = $('#ac-on');
+  if (cb && document.activeElement !== cb) cb.checked = c.auto !== false;
+  let line;
+  if (status.online) {
+    line = 'connected to ' + (status.serial || '');
+  } else if (c.auto === false) {
+    line = 'auto-connect is off - press Reconnect to retry';
+  } else {
+    const seen = (c.seen || []).map(d => d.serial + ' (' + d.state + ')');
+    line = 'retrying every 20 s · adb sees: ' + (seen.length ? seen.join(', ') : 'nothing') +
+      ' · mDNS: ' + ((c.mdns || []).length ? c.mdns.join(', ') : 'none') +
+      ' · remembered: ' + ((c.known || []).length ? c.known.join(', ') : 'none');
+  }
+  const el = $('#ac-state');
+  if (el) el.textContent = line;
+}
+$('#ac-on').addEventListener('change', e => pushSettings({ auto_connect: e.target.checked }, true)
+  .then(() => toast(e.target.checked ? 'auto-connect on' : 'auto-connect off')));
+$('#ac-forget').onclick = () => pushSettings({ forget_devices: true }, true)
+  .then(() => toast('cleared remembered endpoints'));
 function dot(kind, text) {
   return `<span class="dot ${kind}${kind === 'ok' || kind === 'warn' ? ' pulse' : ''}"></span>${text}`;
 }
@@ -761,6 +789,7 @@ function render() {
   document.querySelectorAll('#quality button').forEach(b =>
     b.classList.toggle('on', b.dataset.p === m.preset));
   renderCrop();
+  renderConnect();
   $('#s-crop').textContent = m.crop ? (m.crop.enabled === false ? 'off'
     : (m.crop.top + m.crop.bottom) + ' px') : '—';
 }

@@ -94,21 +94,88 @@ def adb_bytes(serial, args, timeout=30):
         return b""
 
 
-def discover_device():
-    """First online adb serial; prefer the wireless ip:port transport."""
+def adb_device_lines():
+    """[(serial, state)] from `adb devices`, ignoring the banner and daemon lines."""
     try:
         out = subprocess.run([ADB, "devices"], capture_output=True,
                              text=True, timeout=15).stdout
     except Exception:
-        return None
-    serials = []
+        return []
+    rows = []
     for line in out.splitlines()[1:]:
-        m = re.match(r"^(\S+)\s+device\b", line.strip())
+        line = line.strip()
+        if not line or line.startswith("*") or line.lower().startswith("list of"):
+            continue
+        m = re.match(r"^(\S+)\s+(\S+)", line)
         if m:
-            serials.append(m.group(1))
+            rows.append((m.group(1), m.group(2)))
+    return rows
+
+
+def discover_device():
+    """First online adb serial; prefer the wireless ip:port transport."""
+    serials = [s for s, state in adb_device_lines() if state == "device"]
     if not serials:
         return None
     return next((s for s in serials if ":" in s), serials[0])
+
+
+def mdns_targets():
+    """Endpoints adb's mDNS browser has seen, which it may not have dialled."""
+    try:
+        out = subprocess.run([ADB, "mdns", "services"], capture_output=True,
+                             text=True, timeout=15).stdout
+    except Exception:
+        return []
+    hits = []
+    for line in out.splitlines():
+        for m in re.finditer(r"([A-Za-z0-9][A-Za-z0-9._-]*?\.local\.?|\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})",
+                             line):
+            t = "%s:%s" % (m.group(1).rstrip("."), m.group(2))
+            if t not in hits:
+                hits.append(t)
+    return hits
+
+
+def remember_serial(serial):
+    """Keep a short most-recent list of endpoints so a reboot can retry them."""
+    if not serial:
+        return
+    known = [s for s in (SETTINGS.get("known_serials") or []) if s != serial]
+    SETTINGS["known_serials"] = ([serial] + known)[:5]
+    save_settings()
+
+
+def try_auto_connect():
+    """Ask adb to dial mDNS-advertised and remembered endpoints.
+
+    Returns (serial_or_None, notes) - notes are short strings for the log and UI.
+    """
+    targets = list(mdns_targets())
+    for s in SETTINGS.get("known_serials") or []:
+        if s not in targets:
+            targets.append(s)
+    notes = []
+    for t in targets[:3]:
+        # a device may have reappeared while we were dialling a dead endpoint
+        got = discover_device()
+        if got:
+            return got, notes
+        try:
+            # short timeout: an unreachable address otherwise blocks the retry loop
+            p = subprocess.run([ADB, "connect", t], capture_output=True, text=True, timeout=6)
+            lines = ((p.stdout or "") + (p.stderr or "")).strip().splitlines()
+            msg = lines[-1] if lines else "no output"
+        except subprocess.TimeoutExpired:
+            msg = "timeout after 6 s (unreachable)"
+        except Exception as ex:
+            msg = "failed: %s" % ex
+        notes.append("%s -> %s" % (t, msg[:70]))
+        if "already connected" in msg or "connected to" in msg:
+            got = discover_device()
+            if got:
+                return got, notes
+    return None, notes
 
 
 def even(n, min_v=16):
@@ -384,6 +451,7 @@ class Mirror:
     # -- loops ------------------------------------------------------------ #
     def run(self):
         backoff = 0.4
+        last_autoc = 0.0
         while not self.stop.is_set():
             if not self.serial:
                 self.serial = discover_device()
@@ -392,9 +460,28 @@ class Mirror:
                         self.state = "lost"
                         self.error = "no adb device online"
                         self.log("waiting for a device on adb...", "warn")
-                    self._wait(2.0)
-                    continue
+                    # a lingering "offline" row can stop the transport from being
+                    # re-added, so kick it rather than wait for the user
+                    if SETTINGS.get("auto_connect"):
+                        for s, st in adb_device_lines():
+                            if st == "offline":
+                                self.log("device %s is offline - kicking with "
+                                         "`adb reconnect offline`" % s, "warn")
+                                subprocess.run([ADB, "reconnect", "offline"],
+                                               capture_output=True, timeout=20)
+                                break
+                    if SETTINGS.get("auto_connect") and time.time() - last_autoc > 20:
+                        last_autoc = time.time()
+                        got, notes = try_auto_connect()
+                        for note in notes:
+                            self.log("auto-connect: %s" % note, "info" if got else "warn")
+                        if got:
+                            self.serial = got
+                    if not self.serial:
+                        self._wait(2.0)
+                        continue
                 self.log("device online: %s" % self.serial, "info")
+                remember_serial(self.serial)
                 self.refresh_geometry()
                 self.log("display %dx%d @%s dpi, rotation %d" %
                          (self.dev_w, self.dev_h, self.density or "?", self.rotation), "info")
@@ -505,6 +592,8 @@ DEFAULT_SETTINGS = {
     "crop_enabled": True,     # drop the status bar + gesture bar from the mirror
     "crop_top": None,         # device px; None = derive from density / measured insets
     "crop_bottom": None,
+    "auto_connect": True,     # dial mDNS-advertised and remembered endpoints on our own
+    "known_serials": [],      # most-recent wireless endpoints, for retry after a reboot
 }
 SETTINGS = dict(DEFAULT_SETTINGS)
 
@@ -624,10 +713,13 @@ def save_settings():
 
 def update_settings(patch):
     changed = {}
-    for key in ("dwell_enabled", "mac_toasts", "crop_enabled"):
+    for key in ("dwell_enabled", "mac_toasts", "crop_enabled", "auto_connect"):
         if key in patch:
             SETTINGS[key] = bool(patch[key])
             changed[key] = SETTINGS[key]
+    if patch.get("forget_devices"):
+        SETTINGS["known_serials"] = []
+        changed["known_serials"] = []
     for key in ("crop_top", "crop_bottom"):
         if key in patch:
             v = patch[key]
@@ -858,6 +950,10 @@ def collect_status():
         "imaging": HAVE_IMAGING,
         "uptime_s": round(time.time() - MIRROR.started_at),
     }
+    out["connect"] = {"auto": bool(SETTINGS.get("auto_connect", True)),
+                      "known": SETTINGS.get("known_serials") or [],
+                      "mdns": [] if MIRROR.serial else mdns_targets(),
+                      "seen": [{"serial": s, "state": st} for s, st in adb_device_lines()]}
     out["dwell"] = dwell_state()
     return out
 
