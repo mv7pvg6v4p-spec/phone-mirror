@@ -44,6 +44,11 @@ open http://127.0.0.1:8730/
 ## What you get
 
 - **Live mirror** at 20-30 fps over wireless adb, with touch-through:
+- **Auto-connect** (on by default): when no device is present it re-runs adb
+  discovery every 2 s, kicks any device stuck in `offline`, and every 20 s dials
+  the endpoints adb's mDNS browser advertises plus the last five it connected to,
+  so a reboot or a changed Wi-Fi port heals itself. Turn it off with the
+  Auto-connect switch, and clear the remembered list with Forget devices.
   click = tap, drag = swipe, hold = long press, coordinates mapped to the
   device's own pixel space.
 - **System-bar crop** - drops the status bar and gesture bar so only app
