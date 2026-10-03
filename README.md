@@ -6,6 +6,18 @@ screen, and alerts you when one app has held the phone too long.
 Runs entirely on your machine. No accounts, no network egress, no build step,
 no Node - Python standard library plus `adb` and `ffmpeg`.
 
+## Download
+
+Grab the **[latest release zip](https://github.com/mv7pvg6v4p-spec/phone-mirror/releases/latest)**
+(or pick a version from [Releases](https://github.com/mv7pvg6v4p-spec/phone-mirror/releases)),
+unzip it, then:
+
+```bash
+cd phone-mirror-*/
+chmod +x start.sh      # the zip loses the executable bit
+./start.sh start       # prints http://127.0.0.1:8730/
+```
+
 ## Requirements
 
 | Tool | Why |
